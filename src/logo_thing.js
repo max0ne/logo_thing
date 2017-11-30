@@ -1,12 +1,13 @@
 import GyroNorm from 'gyronorm';
 import _ from 'lodash';
+import THREEMLTLoader from 'three-mtl-loader';
 
 const THREE = require('three');
 require('three-obj-loader')(THREE);
 
 /**
-     * listener {function}
-     */
+ * listener {function}
+ */
 function observeMouse(listener) {
   const oldMouseMove = document.onmousemove;
   document.onmousemove = (...params) => {
@@ -76,28 +77,40 @@ function findElementCenter(element) {
 
 /**
  * @param {string} objUrl url to `.obj` file
+ * @param {string} mtlUrl url to `.mtl` file - optional
  * @param {function} callback
  * @return {promise}
  */
-function loadObject(objUrl, callback) {
-  console.log(objUrl);
-  const loader = new THREE.OBJLoader();
-  loader.load(
-    // resource URL
-    objUrl,
+function loadObject(objUrl, mtlUrl, callback) {
+  const loadObj = (mtl) => {
+    const loader = new THREE.OBJLoader();
+    loader.materials = mtl;
+    loader.load(
+      // resource URL
+      objUrl,
 
-    // pass the loaded data to the onLoad function.
-    //Here it is assumed to be an object
-    callback.bind(null, null),
+      // pass the loaded data to the onLoad function.
+      //Here it is assumed to be an object
+      callback.bind(null, null),
 
-    // Function called when download progresses
-    function (xhr) {
-      console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-    },
+      // Function called when download progresses
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+      },
 
-    // Function called when download errors
-    callback.bind(null)
-  );
+      // Function called when download errors
+      callback.bind(null)
+    );
+  };
+
+  if (_.isFunction(mtlUrl)) {
+    callback = mtlUrl;
+    loadObj(null);
+  } else {
+    const mtlLoader = new THREEMLTLoader();
+    mtlLoader.load(mtlUrl, loadObj);
+  }
+  
 }
 
 /**
@@ -196,7 +209,7 @@ export function animate(config) {
         applyObj3d(textMesh);
       });
   } else if (objUrl) {
-    loadObject(objUrl, (err, foxobj) => {
+    loadObject(objUrl, mtlUrl, (err, foxobj) => {
       if (err) {
         console.error(err);
         return;
