@@ -82,7 +82,7 @@ function renderThreeScene(containerDom, obj) {
   let scene = new THREE.Scene();
   let camera = new THREE.PerspectiveCamera(75, containerDom.clientWidth / containerDom.clientHeight, 0.1, 1000);
 
-  scene.background = new THREE.Color(0xffff00);
+  scene.background = new THREE.Color(0xffffff);
 
   let renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(containerDom.clientWidth, containerDom.clientHeight);
@@ -128,24 +128,55 @@ function renderThreeScene(containerDom, obj) {
 }
 
 /**
- * @param {object} config 
+ * @param {object} config
+ * @param {THREE.Object3D} config.obj3d 3d object to render - optional
+ * @param {string} config.text3d text to render - optional
  * @param {string} config.objUrl url to `.obj` file
  * @param {string} config.mtlUrl url to `.mtl` file - optional
  * @param {HTMLElement} config.container dom container
  */
 export function animate(config) {
   // eslint-disable-next-line
-  const { objUrl, mtlUrl, container } = config;
-  loadObject(objUrl, (err, foxobj) => {
-    if (err) {
-      console.error(err);
-      return;
-    }
+  const { objUrl, mtlUrl, container, obj3d, text3d } = config;
+  if (obj3d) {
+    applyObj3d(obj3d);
+  } else if (text3d) {
+    new THREE.FontLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/fonts/helvetiker_regular.typeface.json',
+      (font) => {
+        const geometry = new THREE.TextGeometry(text3d, {
+          font,
+          size: 80,
+          height: 1,
+          curveSegments: 12,
+          bevelEnabled: true,
+          bevelThickness: 1,
+          bevelSize: 8,
+          bevelSegments: 5
+        });
 
-    const foxlook = renderThreeScene(container, foxobj);
+        const textMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0 }));
+        applyObj3d(textMesh);
+      });
+  } else if (objUrl) {
+    loadObject(objUrl, (err, foxobj) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      applyObj3d(foxobj);
+    });
+  } else {
+    console.error('one of', 'objUrl', 'obj3d', 'text3d', 'required');
+  }
+
+  /**
+   * @param {THREE.Object3D} obj 
+   */
+  function applyObj3d(obj) {
+    const foxlook = renderThreeScene(container, obj);
     observeMouse((mouseX, mouseY) => {
       const { x: elementX, y: elementY } = findElementCenter(container);
       foxlook(mouseX - elementX, elementY - mouseY, 100);
     });
-  });
+  }
 }
