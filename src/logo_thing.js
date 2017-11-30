@@ -1,7 +1,8 @@
+import GyroNorm from 'gyronorm';
+import _ from 'lodash';
+
 const THREE = require('three');
 require('three-obj-loader')(THREE);
-
-import GyroNorm from 'gyronorm';
 
 /**
      * listener {function}
@@ -37,8 +38,27 @@ function observeMouse(listener) {
 
 function observeGyro(listener) {
   const gn = new GyroNorm();
-  await gn.init();
-  
+  let initialBeta, initialGamma;
+  let lastBeta, lastGamma;
+  gn.init().then(() => {
+    gn.start((data) => {
+      if (_.isNil(initialBeta)) {
+        initialBeta = data.do.beta;
+        initialGamma = data.do.gamma;
+      } else {
+        const {beta, gamma} = data.do;
+        if (lastBeta === beta && lastGamma === gamma) {
+          return;
+        }
+        lastBeta = beta;
+        lastGamma = gamma;
+        listener({
+          beta: beta - initialBeta,
+          gamma: gamma - initialGamma,
+        });
+      }
+    });
+  });
 }
 
 /**
@@ -84,7 +104,7 @@ function loadObject(objUrl, callback) {
  * setup scene to render
  * @param {Document.Element} container
  * @param {THREE.Object3D} obj 
- * @return {function} function to rotate object
+ * @return {object} foxlook, foxrotate
  */
 function renderThreeScene(containerDom, obj) {
   let scene = new THREE.Scene();
@@ -127,12 +147,22 @@ function renderThreeScene(containerDom, obj) {
   // render first frame
   renderer.render(scene, camera);
 
-  return (lookatX, lookatY, lookatZ) => {
+  const foxlook = (lookatX, lookatY, lookatZ) => {
     obj.lookAt(lookatX, lookatY, lookatZ || cameraZ);
     requestAnimationFrame(() => {
       renderer.render(scene, camera);
     });
   };
+  const rad = (deg) => deg / 180 * Math.PI;
+  const foxrotate = (beta, gamma) => {
+    obj.rotation.x = rad(beta);
+    obj.rotation.y = rad(gamma);
+    requestAnimationFrame(() => {
+      renderer.render(scene, camera);
+    });
+  };
+
+  return { foxlook, foxrotate };
 }
 
 /**
@@ -181,10 +211,14 @@ export function animate(config) {
    * @param {THREE.Object3D} obj 
    */
   function applyObj3d(obj) {
-    const foxlook = renderThreeScene(container, obj);
+    const { foxlook, foxrotate } = renderThreeScene(container, obj);
     observeMouse((mouseX, mouseY) => {
       const { x: elementX, y: elementY } = findElementCenter(container);
       foxlook(mouseX - elementX, elementY - mouseY, 100);
+    })
+
+    observeGyro(({beta, gamma}) => {
+      foxrotate(beta, gamma);
     });
   }
 }

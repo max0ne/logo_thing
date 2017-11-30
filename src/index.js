@@ -1,8 +1,8 @@
 window.onload = () => {
   console.log('onload');
   require('./logo_thing').animate({
-    // objUrl: 'fox.obj',
-    text3d: "'_'",
+    objUrl: 'fox.obj',
+    // text3d: "'_'",
     container: document.getElementById('threeContainer'),
   });
 };
