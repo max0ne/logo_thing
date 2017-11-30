@@ -134,6 +134,7 @@ function renderThreeScene(containerDom, obj) {
  * @param {HTMLElement} config.container dom container
  */
 export function animate(config) {
+  // eslint-disable-next-line
   const { objUrl, mtlUrl, container } = config;
   loadObject(objUrl, (err, foxobj) => {
     if (err) {
