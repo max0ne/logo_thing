@@ -1,6 +1,8 @@
 const THREE = require('three');
 require('three-obj-loader')(THREE);
 
+import GyroNorm from 'gyronorm';
+
 /**
      * listener {function}
      */
@@ -31,6 +33,12 @@ function observeMouse(listener) {
     }
     listener(event.pageX, event.pageY);
   }
+}
+
+function observeGyro(listener) {
+  const gn = new GyroNorm();
+  await gn.init();
+  
 }
 
 /**
@@ -145,13 +153,13 @@ export function animate(config) {
       (font) => {
         const geometry = new THREE.TextGeometry(text3d, {
           font,
-          size: 80,
+          size: 100,
           height: 1,
-          curveSegments: 12,
+          curveSegments: 1,
           bevelEnabled: true,
           bevelThickness: 1,
           bevelSize: 8,
-          bevelSegments: 5
+          bevelSegments: 1
         });
 
         const textMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0 }));
