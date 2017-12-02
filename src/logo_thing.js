@@ -1,6 +1,7 @@
 import GyroNorm from 'gyronorm';
 import _ from 'lodash';
 import THREEMLTLoader from 'three-mtl-loader';
+import * as anime from './anime';
 
 const THREE = require('three');
 require('three-obj-loader')(THREE);
@@ -161,8 +162,13 @@ function renderThreeScene(containerDom, obj) {
   renderer.render(scene, camera);
 
   let currentLookAt = [0, 0, 0];
-  const foxlook = (lookatX, lookatY, lookatZ) => {
-    _animationCurve(currentLookAt, [lookatX, lookatY, lookatZ], linearCurve, (nextLookat, continueFrame) => {
+  let cancelPreviousAnimation = null;
+  const foxlook = (...lookatXYZ) => {
+    // remove previous animation if exist
+    cancelPreviousAnimation && cancelPreviousAnimation();
+
+    // apply new look by an animation curve
+    const animation = anime.animationCurve(currentLookAt, lookatXYZ, anime.animationCurveFunctions.easeOutCubic, (nextLookat, continueFrame) => {
       currentLookAt = nextLookat;
       obj.lookAt(...nextLookat);
       requestAnimationFrame(() => {
@@ -170,6 +176,9 @@ function renderThreeScene(containerDom, obj) {
         continueFrame();
       });
     });
+
+    cancelPreviousAnimation = animation.cancel;
+    animation.start();
   };
   const rad = (deg) => deg / 180 * Math.PI;
   const foxrotate = (beta, gamma) => {
@@ -181,98 +190,6 @@ function renderThreeScene(containerDom, obj) {
   };
 
   return { foxlook, foxrotate };
-}
-
-/**
- * guess an animation duration for an animation from `current` to `target`
- * @param {number[]} current 
- * @param {number[]} target 
- * @return {number}
- */
-function animationDuration(current, target) {
-  // euclidian distance / step
-  return euclidianDistance(current, target) / 5;
-}
-
-function linearCurve(tt) {
-  return tt;
-}
-
-/**
- * @param {number[]} from 
- * @param {number[]} to 
- * @return | to - from |
- */
-function euclidianDistance(from, to) {
-  const vec = vectorDiff(from, to);
-  return Math.sqrt(_.sum(vec.map((vv) => vv * vv)));
-}
-
-/** 
- * @param {number[]} from 
- * @param {number[]} to 
- * @return {number[]} to - from
- */
-function vectorDiff(from, to) {
-  return to.map((tt, idx) => tt - from[idx]);
-}
-
-/** 
- * @param {number[]} from 
- * @param {number[]} to 
- * @return {number[]} to + from
- */
-function vecSum(one, two) {
-  return one.map((oo, idx) => oo - two[idx]);
-}
-
-/**
- * @param {number[]} vec
- * @return {number[]} unit vector
- */
-function unitVector(vec) {
-  const sum = euclidianDistance(vec, [0, 0, 0]);
-  return vec.map((vv) => vv / sum);
-}
-
-/**
- * @param {number[]} vec
- * @param {number} scalar
- * @return {number[]}
- */
-function vecTimesScalar(vec, scalar) {
-  return vec.map((vv) => vv * scalar);
-}
-
-/**
- * 
- * @param {number[]} current 
- * @param {number[]} target
- * @param {function} applyFrame
- * @param {number[]} applyFrame.nextCurrent
- */
-function _animationCurve(current, target, curveFunction, applyFrame) {
-  let animationTime = 0;
-  const initial = current;
-  const duration = animationDuration(current, target);
-  const direction = unitVector(vectorDiff(current, target));
-  const distance = euclidianDistance(current, target);
-  const pushFrame = () => {
-    if (animationTime >= 1) {
-      return;
-    } else {
-      animationTime += 1 / duration;
-    }
-    console.log(animationTime);
-
-    const nextTraveledDistance = curveFunction(animationTime) * distance;
-    const nextTraveledVector = vecTimesScalar(direction, nextTraveledDistance);
-    const nextCurrent = vecSum(nextTraveledVector, initial);
-
-    current = nextCurrent;
-    applyFrame(current, pushFrame);
-  };
-  pushFrame();
 }
 
 /**
@@ -325,6 +242,7 @@ export function animate(config) {
     observeMouse((mouseX, mouseY) => {
       const { x: elementX, y: elementY } = findElementCenter(container);
       foxlook(mouseX - elementX, elementY - mouseY, 100);
+      window.foxlook = foxlook;
     })
 
     observeGyro(({beta, gamma}) => {
