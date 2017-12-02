@@ -1,6 +1,7 @@
 import GyroNorm from 'gyronorm';
 import _ from 'lodash';
 import THREEMLTLoader from 'three-mtl-loader';
+import * as anime from './anime';
 
 const THREE = require('three');
 require('three-obj-loader')(THREE);
@@ -160,11 +161,24 @@ function renderThreeScene(containerDom, obj) {
   // render first frame
   renderer.render(scene, camera);
 
-  const foxlook = (lookatX, lookatY, lookatZ) => {
-    obj.lookAt(lookatX, lookatY, lookatZ || cameraZ);
-    requestAnimationFrame(() => {
-      renderer.render(scene, camera);
+  let currentLookAt = [0, 0, 0];
+  let cancelPreviousAnimation = null;
+  const foxlook = (...lookatXYZ) => {
+    // remove previous animation if exist
+    cancelPreviousAnimation && cancelPreviousAnimation();
+
+    // apply new look by an animation curve
+    const animation = anime.animationCurve(currentLookAt, lookatXYZ, anime.animationCurveFunctions.easeOutCubic, (nextLookat, continueFrame) => {
+      currentLookAt = nextLookat;
+      obj.lookAt(...nextLookat);
+      requestAnimationFrame(() => {
+        renderer.render(scene, camera);
+        continueFrame();
+      });
     });
+
+    cancelPreviousAnimation = animation.cancel;
+    animation.start();
   };
   const rad = (deg) => deg / 180 * Math.PI;
   const foxrotate = (beta, gamma) => {
@@ -228,6 +242,7 @@ export function animate(config) {
     observeMouse((mouseX, mouseY) => {
       const { x: elementX, y: elementY } = findElementCenter(container);
       foxlook(mouseX - elementX, elementY - mouseY, 100);
+      window.foxlook = foxlook;
     })
 
     observeGyro(({beta, gamma}) => {
